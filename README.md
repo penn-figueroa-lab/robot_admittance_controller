@@ -1,6 +1,6 @@
 # robot_admittance_controller
 
-Admittance control law to generate desired motion of an end-effector (twist), given a desired control wrench and external wrench for a robotic arm that is not torque-controlled (i.e. velocity or position controlled). 
+Admittance control law to generate desired motion of an end-effector (twist), given a desired control wrench and external wrench for a robotic arm. 
 
 Such a controller is necessary to use impedance-control-like laws and provide compliant human-robot-interaction when the  velocity/position controlled robot arm is equipped with an external force/torque sensor.
 
