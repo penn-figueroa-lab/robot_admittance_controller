@@ -17,17 +17,18 @@ AdmittanceController::AdmittanceController(ros::NodeHandle &n,
   D_a_(D_a.data()),
   workspace_limits_(workspace_limits.data()),
   arm_max_vel_(arm_max_vel),
-  arm_max_acc_(arm_max_acc){
+  arm_max_acc_(arm_max_acc)
+  {
 
 
   // --- Subscribers --- //
   sub_arm_pose_           = nh_.subscribe(topic_arm_pose, 10,
                                  &AdmittanceController::pose_arm_callback, this,
                                  ros::TransportHints().reliable().tcpNoDelay());
-  std::string topic_arm_pose_arm = "/UR10arm/ee_pose_arm";
-  sub_arm_pose_arm_       = nh_.subscribe(topic_arm_pose_arm, 10,
-                                 &AdmittanceController::pose_arm_arm_callback, this,
-                                 ros::TransportHints().reliable().tcpNoDelay());
+  // std::string topic_arm_pose_arm = "/UR10arm/ee_pose_arm";
+  // sub_arm_pose_arm_       = nh_.subscribe(topic_arm_pose_arm, 10,
+  //                                &AdmittanceController::pose_arm_arm_callback, this,
+  //                                ros::TransportHints().reliable().tcpNoDelay());
 
   sub_arm_twist_          = nh_.subscribe(topic_arm_twist, 10,
                                  &AdmittanceController::twist_arm_callback, this,
@@ -47,6 +48,9 @@ AdmittanceController::AdmittanceController(ros::NodeHandle &n,
   //                            topic_external_wrench_arm_frame, 5);
   // pub_wrench_control_     = nh_.advertise<geometry_msgs::WrenchStamped>(
   //                            topic_control_wrench_arm_frame, 5);
+
+  // --- Services --- //
+  start_srv               = nh_.advertiseService("finish_calibration", &AdmittanceController::start_service_callback, this);
 
   ROS_INFO_STREAM("Arm max vel:" << arm_max_vel_ << " max acc:" << arm_max_acc_);
 
@@ -110,8 +114,12 @@ void AdmittanceController::compute_admittance() {
   // Vector6d platform_desired_acceleration;
   Vector6d arm_desired_accelaration;
 
-  arm_desired_accelaration = M_a_.inverse() * ( - D_a_ * arm_desired_twist_
-                             + wrench_external_ + wrench_control_);
+  // std::cout << "M_a_: " << M_a_ << std::endl;
+  // std::cout << "arm_desired_twist_: " << arm_desired_twist_ << std::endl;
+  // std::cout << "wrench_external_: " << wrench_external_ << std::endl;
+
+  arm_desired_accelaration = M_a_.inverse() * ( - D_a_ * arm_desired_twist_ 
+                             + wrench_external_); //+ wrench_control_);
 
   // limiting the accelaration for better stability and safety
   double a_acc_norm = (arm_desired_accelaration.segment(0, 3)).norm();
@@ -172,7 +180,8 @@ void AdmittanceController::wrench_external_callback(
 
 
     // --- This can be a callback! --- //                
-    get_rotation_matrix(rotation_tool_, listener_ft_, "base_link", "robotiq_force_torque_frame_id", 0 );    
+    get_rotation_matrix(rotation_tool_, listener_ft_, "world", "robotiq_force_torque_frame_id", 0 );  
+ 
     wrench_external_ <<  rotation_tool_  * wrench_ft_frame;
   }
 }
@@ -180,13 +189,20 @@ void AdmittanceController::wrench_external_callback(
 void AdmittanceController::wrench_control_callback(
   const geometry_msgs::WrenchStampedConstPtr msg) {
 
-  if (msg->header.frame_id == "arm_base_link") {
+  if (msg->header.frame_id == "iiwa_link_0") {
     wrench_control_ << msg->wrench.force.x, msg->wrench.force.y, msg->wrench.force.z,
                     msg->wrench.torque.x, msg->wrench.torque.y, msg->wrench.torque.z;
   }
   else  {
     ROS_WARN_THROTTLE(5, "wrench_control_callback: The frame_id is not specified as ur5_arm_base_link");
   }
+}
+
+
+bool AdmittanceController::start_service_callback(std_srvs::Empty::Request &req, std_srvs::Empty::Response &resp)
+{
+    start = true;  
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////
@@ -207,7 +223,9 @@ void AdmittanceController::send_commands_to_robot() {
   ROS_WARN_STREAM_THROTTLE(0.1,"Desired linear velocity: "  << arm_twist_cmd.linear.x << " " << arm_twist_cmd.linear.y << " " <<  arm_twist_cmd.linear.z);
   ROS_WARN_STREAM_THROTTLE(0.1,"Desired angular velocity: " << arm_twist_cmd.angular.x << " " << arm_twist_cmd.angular.y << " " <<  arm_twist_cmd.angular.z);
 
-  pub_arm_cmd_.publish(arm_twist_cmd);
+  if (start){
+    pub_arm_cmd_.publish(arm_twist_cmd);
+  }
 }
 
 
@@ -285,19 +303,19 @@ void AdmittanceController::wait_for_transformations() {
 
   // Makes sure all TFs exists before enabling all transformations in the callbacks
   while (!get_rotation_matrix(rotation_base_, listener,
-                              "base_link", "arm_base_link", 1)) {
+                              "world", "iiwa_link_0", 1)) {
     sleep(1);
   }
   arm_world_ready_ = true;
   
   while (!get_rotation_matrix(rot_matrix, listener,
-                              "arm_base_link", "base_link", 0)) {
+                              "iiwa_link_0", "world", 0)) {
     sleep(1);
   }
   world_arm_ready_ = true;
 
   while (!get_rotation_matrix(rotation_tool_, listener,
-                              "base_link", "robotiq_force_torque_frame_id", 0)) {
+                              "world", "robotiq_force_torque_frame_id", 0)) {
     sleep(1);
   }
   ft_arm_ready_ = true;

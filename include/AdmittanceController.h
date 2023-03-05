@@ -8,9 +8,11 @@
 #include "geometry_msgs/Twist.h"
 #include "geometry_msgs/WrenchStamped.h"
 #include "geometry_msgs/TwistStamped.h"
+#include "std_srvs/Empty.h"
 #include <tf/transform_datatypes.h>
 #include <tf_conversions/tf_eigen.h>
 #include <tf/transform_listener.h>
+#include <tf/transform_broadcaster.h>
 
 #include "eigen3/Eigen/Core"
 #include "eigen3/Eigen/Geometry"
@@ -107,6 +109,11 @@ protected:
   ros::Publisher pub_arm_cmd_;
 
 
+  // --- Services --- //
+  ros::ServiceServer start_srv;
+  bool start = false;
+
+
   // --- INPUT SIGNAL --- //
   // external wrench (force/torque sensor) in "robotiq_force_torque_frame_id" frame
   Vector6d wrench_external_;
@@ -170,6 +177,7 @@ protected:
   void twist_arm_callback(const geometry_msgs::TwistConstPtr msg);
   void wrench_external_callback(const geometry_msgs::WrenchStampedConstPtr msg);
   void wrench_control_callback(const geometry_msgs::WrenchStampedConstPtr msg);
+  bool start_service_callback(std_srvs::Empty::Request &req, std_srvs::Empty::Response &resp);
 
 
   // Util

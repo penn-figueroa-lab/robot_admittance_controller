@@ -11,7 +11,7 @@ damping_arm: [12,0,0,0,0,0,
               0,0,0,7,0,0,
               0,0,0,0,7,0,
               0,0,0,0,0,7]
-# not that position is defined in "ur5_arm_base_link"
+# not that position is defined in "ur5_"
 # with x pointing right
 #      y pointing forward
 #      z pointing up
