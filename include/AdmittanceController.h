@@ -19,6 +19,7 @@
 #include "eigen3/Eigen/Dense"
 
 #include "std_msgs/Float32.h"
+#include <std_msgs/Float32MultiArray.h>
 
 
 // AdmittanceController class //
@@ -103,6 +104,11 @@ protected:
   // Subscriber for the control input (wrench)
   ros::Subscriber sub_wrench_control_;
 
+  // Subscriber for the adjustable params
+  ros::Subscriber sub_mass_params_;
+  ros::Subscriber sub_damp_params_;
+  ros::Subscriber sub_control_axis_;
+
 
   // --- Publishers --- //
   // Publisher for the twist of arm endeffector
@@ -111,7 +117,7 @@ protected:
 
   // --- Services --- //
   ros::ServiceServer start_srv;
-  bool start = false;
+  bool start = true; //yifei changed this so that the admittance controller starts by default
 
 
   // --- INPUT SIGNAL --- //
@@ -154,6 +160,9 @@ protected:
   Matrix6d rotation_base_;
   Matrix6d rotation_tool_;
 
+  // Define enable control axis
+  Vector3d control_axis_;
+
   // TF:
   // Listeners
   tf::TransformListener listener_ft_;
@@ -177,6 +186,9 @@ protected:
   void twist_arm_callback(const geometry_msgs::TwistConstPtr msg);
   void wrench_external_callback(const geometry_msgs::WrenchStampedConstPtr msg);
   void wrench_control_callback(const geometry_msgs::WrenchStampedConstPtr msg);
+  void mass_params_callback(const std_msgs::Float32MultiArray::ConstPtr& msg);
+  void damp_params_callback(const std_msgs::Float32MultiArray::ConstPtr& msg);
+  void control_axis_callback(const std_msgs::Float32MultiArray::ConstPtr& msg);
   bool start_service_callback(std_srvs::Empty::Request &req, std_srvs::Empty::Response &resp);
 
 
