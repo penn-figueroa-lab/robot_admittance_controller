@@ -117,7 +117,7 @@ protected:
 
   // --- Services --- //
   ros::ServiceServer start_srv;
-  bool start = true; //yifei changed this so that the admittance controller starts by default
+  bool start = false; //yifei changed this so that the admittance controller starts by default
 
 
   // --- INPUT SIGNAL --- //

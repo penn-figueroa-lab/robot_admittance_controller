@@ -106,7 +106,8 @@ void AdmittanceController::run() {
     compute_admittance();
 
     // sum the vel from admittance to DS in this function
-    limit_to_workspace();
+    // limit_to_workspace(); A_Z = -3  desired_height = 0.5
+    arm_desired_twist_(2) = -3.0*(arm_real_position_(2) - 0.5);
     // Here I can do the "workspace-modulation" idea
 
     // Copy commands to messages
