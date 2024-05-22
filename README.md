@@ -11,10 +11,31 @@ Such a controller is necessary to use impedance-control-like laws and provide co
 **Disclaimer**: Parts of this code was originally forked from [ridgeback_ur5_controller](https://github.com/epfl-lasa/ridgeback_ur5_controller) which is a repo used to control a Clearpath robotic platform with a UR5 from the LASA laboratory at EPFL. Plenty modifications have been made in order to work with a standalone robotic arm.
 
 ## Installation
-...
+Install [iiwa_interactive_controller](https://github.com/penn-figueroa-lab/iiwa_interactive_controller)
 
 ## Usage
-...
+Launch from <b>iiwa_interactive_controller</b>. The robot will reach a null joint position.
+```
+roslaunch iiwa_interactive_controller admittance_real.launch
+```
+
+Check the force sensor output
+```
+rostopic echo /robotiq_force_torque_wrench_filtered
+```
+
+If the readings are not zero, calibrate the force sensor. Watch the force sensor topic reach zero.
+```
+rosservice call /robotiq_force_torque_sensor_acc "command_id: 8
+```
+
+Start the admittance control by lifting the flag
+```
+rosservice call /admittance_control/finish_calibration
+```
+
+
+
 
 ## Contact
 **Maintainer**: [Nadia Figueroa](https://nbfigueroa.github.io/) (nadiafig AT mit dot edu)
