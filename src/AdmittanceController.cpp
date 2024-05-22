@@ -186,19 +186,47 @@ void AdmittanceController::twist_arm_callback(
 
 void AdmittanceController::wrench_external_callback(
   const geometry_msgs::WrenchStampedConstPtr msg) {
-  Vector6d wrench_ft_frame;
+  Vector6d raw_input;
   if (ft_arm_ready_) {
 
     // Reading the FT-sensor in its own frame (robotiq_force_torque_frame_id)
-    wrench_ft_frame << msg->wrench.force.x, msg->wrench.force.y,
+    raw_input << msg->wrench.force.x, msg->wrench.force.y,
                     msg->wrench.force.z, msg->wrench.torque.x,
                     msg->wrench.torque.y, msg->wrench.torque.z;
 
 
     // --- This can be a callback! --- //                
     get_rotation_matrix(rotation_tool_, listener_ft_,  "world", msg->header.frame_id,  0 );  
+    Eigen::Matrix3d rotation_tool_3d = rotation_tool_.topLeftCorner(3,3);
+    //loop up transform from msg.header.frame_id to world, tranform wrench to world frame
+    // trans = self.tfBuffer.lookup_transform('world', APPLICATION_LINK_NAME, rospy.Time(0))
+
+    // raw_input.topRows(3)    <<  rotation_tool_ * raw_input.topRows(3);// world frame
+    // // raw_input[2] = 0;
+    // // raw_input[2] = msg -> wrench.torque.z;
+    // raw_input.bottomRows(3) << rotation_tool_ * raw_input.bottomRows(3);
+
+    Eigen::Vector3d F_extra = rotation_tool_3d.transpose() * Eigen::Vector3d(0.0, 0.0 , (-4.444)*9.81);
+    Eigen::Vector3d r_load(0.0, -0.04, 0.16);
+    Eigen::Vector3d torque_extra = r_load.cross(F_extra);
+    // Eigen::Vector3d F_extra_world = rotation_tool_3d * F_extra;
+    // Eigen::Vector3d torque_extra_world = rotation_tool_3d * torque_extra;
+
+    raw_input.topRows(3)    -= F_extra;
+    raw_input.bottomRows(3) -= torque_extra;
+
+    // raw_input.topRows(3) << rotation_tool_3d.transpose() * raw_input.topRows(3); //local frame
+    // raw_input.bottomRows(3) << rotation_tool_3d.transpose() * raw_input.bottomRows(3);
+    // raw_input[2] = 0; //front back term causing problems
+    raw_input[3] = 0; //torque x
+    raw_input[4] = 0; //torque y
+    //maybe also set some torques to zero here
+    // raw_input[]
+    raw_input.topRows(3) << rotation_tool_3d * raw_input.topRows(3); //local frame
+    raw_input.bottomRows(3) << rotation_tool_3d * raw_input.bottomRows(3);
+    raw_input[2] = 0; //z axis grav term
  
-    wrench_external_ <<  rotation_tool_  * wrench_ft_frame;
+    wrench_external_ <<  raw_input;
     // ROS_INFO_THROTTLE(3.0, "wrench_external : %f, %f, %f", wrench_external_(0), wrench_external_(1), wrench_external_(2));
   }
 }
@@ -274,6 +302,7 @@ void AdmittanceController::limit_to_workspace() {
 
   // velocity of the arm along x, y, and z axis
   double norm_vel_des = (arm_desired_twist_.segment(0, 3)).norm();
+  double norm_angvel_des = (arm_desired_twist_.segment(3, 3)).norm();
   //ROS_WARN_STREAM_THROTTLE(0.1, "Velocity norm: " << norm_vel_des);
 
   if (norm_vel_des > arm_max_vel_) {
@@ -282,24 +311,16 @@ void AdmittanceController::limit_to_workspace() {
     arm_desired_twist_.segment(0, 3) *= (arm_max_vel_ / norm_vel_des);
 
   }
+  if (norm_angvel_des > arm_max_vel_) {
+    //ROS_WARN_STREAM_THROTTLE(1, "Admittance generate fast arm movements! angular velocity norm: " << norm_angvel_des);
+
+    arm_desired_twist_.segment(3, 3) *= (arm_max_vel_ / norm_angvel_des);
+
+  }
 
   if (norm_vel_des < 1e-5)
     arm_desired_twist_.segment(0,3).setZero();
 
-  if (arm_desired_twist_(3) < -0.3)
-      arm_desired_twist_(3) = -0.3;
-  if (arm_desired_twist_(4) < -0.3)
-      arm_desired_twist_(4) = -0.3;
-  if (arm_desired_twist_(5) < -0.3)
-      arm_desired_twist_(5) = -0.3;
-
-  // velocity of the arm along x, y, and z angles
-  if (arm_desired_twist_(3) > 0.3)
-      arm_desired_twist_(3) = 0.3;
-  if (arm_desired_twist_(4) > 0.3)
-      arm_desired_twist_(4) = 0.3;
-  if (arm_desired_twist_(5) > 0.3)
-      arm_desired_twist_(5) = 0.3;    
 
 
   // Impose workspace constraints on desired velocities
